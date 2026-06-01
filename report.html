@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Napier Heat Pumps – Monthly Marketing Report</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a202c; }
+
+  header {
+    background: linear-gradient(135deg, #1a365d 0%, #2a69ac 100%);
+    color: white; padding: 28px 40px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+  }
+  header h1 { font-size: 1.6rem; font-weight: 700; }
+  header p { font-size: 0.9rem; opacity: 0.8; margin-top: 4px; }
+  .month-badge { background: rgba(255,255,255,0.2); border-radius: 8px; padding: 8px 18px; font-size: 1.1rem; font-weight: 600; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 30px 20px; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 30px; }
+  .kpi-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); border-left: 4px solid #2a69ac; }
+  .kpi-card.green { border-left-color: #38a169; }
+  .kpi-card.orange { border-left-color: #dd6b20; }
+  .kpi-card.purple { border-left-color: #805ad5; }
+  .kpi-card.red { border-left-color: #e53e3e; }
+  .kpi-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #718096; margin-bottom: 6px; }
+  .kpi-value { font-size: 2rem; font-weight: 700; color: #1a202c; line-height: 1; }
+  .kpi-change { font-size: 0.82rem; margin-top: 6px; }
+  .kpi-change.up { color: #38a169; }
+  .kpi-change.down { color: #e53e3e; }
+
+  .section { background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+  .section-title { font-size: 1.1rem; font-weight: 700; color: #1a365d; margin-bottom: 18px; padding-bottom: 10px; border-bottom: 2px solid #ebf4ff; }
+
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+  @media (max-width: 700px) { .charts-grid { grid-template-columns: 1fr; } }
+  .chart-box { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+  .chart-title { font-size: 0.9rem; font-weight: 600; color: #4a5568; margin-bottom: 14px; }
+  .chart-wrap { position: relative; height: 200px; }
+
+  .stats-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .stats-table th { background: #f7fafc; color: #4a5568; font-weight: 600; text-align: left; padding: 10px 12px; border-bottom: 2px solid #e2e8f0; }
+  .stats-table td { padding: 9px 12px; border-bottom: 1px solid #f0f4f8; }
+  .stats-table tr:last-child td { border-bottom: none; }
+  .stats-table .current { font-weight: 700; color: #1a365d; }
+  .highlight-row { background: #ebf8ff; }
+
+  .investment-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .inv-card { background: #f7fafc; border-radius: 10px; padding: 14px 16px; text-align: center; }
+  .inv-label { font-size: 0.75rem; color: #718096; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .inv-value { font-size: 1.4rem; font-weight: 700; color: #1a365d; }
+
+  .loading { text-align: center; padding: 80px 20px; color: #718096; }
+  .loading-spinner { width: 40px; height: 40px; border: 4px solid #e2e8f0; border-top-color: #2a69ac; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-banner { background: #fff5f5; border: 1px solid #fc8181; color: #c53030; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; font-size: 0.9rem; display: none; }
+
+  .update-btn { display: inline-flex; align-items: center; gap: 8px; background: #2a69ac; color: white; border: none; border-radius: 8px; padding: 12px 22px; font-size: 0.95rem; font-weight: 600; cursor: pointer; margin-bottom: 28px; }
+  .update-btn:hover { background: #1a4f8a; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: white; border-radius: 16px; padding: 32px; width: min(680px, 95vw); max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+  .modal h2 { font-size: 1.3rem; color: #1a365d; margin-bottom: 4px; }
+  .modal .sub { color: #718096; font-size: 0.85rem; margin-bottom: 22px; }
+
+  .pat-banner { background: #fffbeb; border: 1px solid #f6e05e; border-radius: 8px; padding: 12px 14px; font-size: 0.82rem; color: #744210; margin-bottom: 18px; line-height: 1.5; }
+  .pat-banner a { color: #2a69ac; }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 0.8rem; font-weight: 600; color: #4a5568; text-transform: uppercase; letter-spacing: 0.04em; }
+  input { border: 1.5px solid #e2e8f0; border-radius: 7px; padding: 9px 12px; font-size: 0.95rem; outline: none; transition: border 0.15s; width: 100%; }
+  input:focus { border-color: #2a69ac; }
+  .form-section-label { grid-column: 1 / -1; font-size: 0.95rem; font-weight: 700; color: #1a365d; margin-top: 10px; padding-top: 14px; border-top: 1px solid #e2e8f0; }
+
+  .modal-actions { display: flex; gap: 10px; margin-top: 22px; justify-content: flex-end; align-items: center; }
+  .btn-primary { background: #2a69ac; color: white; border: none; border-radius: 8px; padding: 11px 24px; font-size: 0.95rem; font-weight: 600; cursor: pointer; }
+  .btn-primary:hover { background: #1a4f8a; }
+  .btn-primary:disabled { background: #a0aec0; cursor: not-allowed; }
+  .btn-cancel { background: #edf2f7; color: #4a5568; border: none; border-radius: 8px; padding: 11px 20px; font-size: 0.95rem; cursor: pointer; }
+  .modal-error { color: #e53e3e; font-size: 0.85rem; flex: 1; }
+
+  .toast { display: none; position: fixed; bottom: 30px; right: 30px; color: white; padding: 14px 22px; border-radius: 10px; font-weight: 600; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 200; }
+  .toast.success { background: #38a169; display: block; }
+  .toast.error { background: #e53e3e; display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🌡️ Napier Heat Pumps</h1>
+    <p>Monthly Marketing Performance Report</p>
+  </div>
+  <div class="month-badge" id="headerMonth">Loading…</div>
+</header>
+
+<div class="container">
+  <div class="error-banner" id="errorBanner"></div>
+
+  <div id="loadingMsg" class="loading">
+    <div class="loading-spinner"></div>
+    Loading report data…
+  </div>
+
+  <div id="reportContent" style="display:none">
+    <button class="update-btn" onclick="openModal()">✏️ Update for New Month</button>
+
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <div class="section">
+      <div class="section-title">💰 Monthly Investment</div>
+      <div class="investment-grid">
+        <div class="inv-card">
+          <div class="inv-label">Google Ads</div>
+          <div class="inv-value" id="kpi-adsSpend">—</div>
+          <div style="font-size:0.75rem;color:#718096;margin-top:3px;">+ $200 mgmt fee</div>
+        </div>
+        <div class="inv-card"><div class="inv-label">SEO</div><div class="inv-value" id="kpi-seoInvest">—</div></div>
+        <div class="inv-card"><div class="inv-label">Total</div><div class="inv-value" id="kpi-totalInvest">—</div></div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-box"><div class="chart-title">📋 Total Form Enquiries (12 months)</div><div class="chart-wrap"><canvas id="chartForms"></canvas></div></div>
+      <div class="chart-box"><div class="chart-title">🖱️ Google Ads Clicks (12 months)</div><div class="chart-wrap"><canvas id="chartClicks"></canvas></div></div>
+      <div class="chart-box"><div class="chart-title">💲 Cost Per Conversion (12 months)</div><div class="chart-wrap"><canvas id="chartCPC"></canvas></div></div>
+      <div class="chart-box"><div class="chart-title">📞 GBP Phone Calls (12 months)</div><div class="chart-wrap"><canvas id="chartCalls"></canvas></div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">📢 Google Ads</div>
+      <table class="stats-table">
+        <thead><tr><th>Metric</th><th id="th0">—</th><th id="th1">—</th><th id="th2">—</th><th id="th3">—</th><th id="th4">—</th><th id="th5">—</th></tr></thead>
+        <tbody id="adsTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">📊 Website Form Submissions</div>
+      <table class="stats-table">
+        <thead><tr><th>Form</th><th id="fth0">—</th><th id="fth1">—</th><th id="fth2">—</th><th id="fth3">—</th><th id="fth4">—</th><th id="fth5">—</th></tr></thead>
+        <tbody id="formsTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="charts-grid">
+      <div class="section" style="margin-bottom:0">
+        <div class="section-title">🔍 SEO Organic</div>
+        <table class="stats-table">
+          <thead><tr><th>Metric</th><th id="seth0">—</th><th id="seth1">—</th><th id="seth2">—</th><th id="seth3">—</th></tr></thead>
+          <tbody id="seoTableBody"></tbody>
+        </table>
+      </div>
+      <div class="section" style="margin-bottom:0">
+        <div class="section-title">📍 Google Business Profile</div>
+        <table class="stats-table">
+          <thead><tr><th>Month</th><th>Calls</th></tr></thead>
+          <tbody id="gbpTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Update Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2>Update Monthly Data</h2>
+    <p class="sub">Enter the new month's figures. All previous months are kept in history.</p>
+
+    <div class="pat-banner">
+      🔑 <strong>GitHub Token required to save.</strong> You need a Personal Access Token with <code>repo</code> scope.<br>
+      <a href="https://github.com/settings/tokens/new?scopes=repo&description=NapierHeatPumpsReport" target="_blank">Click here to create one</a> — then paste it in the field below. It's only used to save data to your GitHub repo.
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Report Month</label>
+        <input type="month" id="f-month">
+      </div>
+      <div class="form-group full">
+        <label>GitHub Personal Access Token</label>
+        <input type="password" id="f-pat" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+      </div>
+
+      <div class="form-section-label">💰 Investment</div>
+      <div class="form-group"><label>Ads Spend ($)</label><input type="number" id="f-adsSpend" placeholder="1400"></div>
+      <div class="form-group"><label>SEO Investment ($)</label><input type="number" id="f-seoInvest" placeholder="750"></div>
+
+      <div class="form-section-label">📋 Website Forms</div>
+      <div class="form-group"><label>Contact Form</label><input type="number" id="f-contactForm" placeholder="0"></div>
+      <div class="form-group"><label>Quick Quote</label><input type="number" id="f-quickQuote" placeholder="0"></div>
+      <div class="form-group full"><label>Maintenance Form</label><input type="number" id="f-maintenanceForm" placeholder="0"></div>
+
+      <div class="form-section-label">📢 Google Ads</div>
+      <div class="form-group"><label>Clicks</label><input type="number" id="f-adsClicks" placeholder="0"></div>
+      <div class="form-group"><label>Total Conversions</label><input type="number" id="f-adsConversions" placeholder="0"></div>
+      <div class="form-group"><label>Forms</label><input type="number" id="f-adsForms" placeholder="0"></div>
+      <div class="form-group"><label>Phone Clicks</label><input type="number" id="f-adsPhoneClicks" placeholder="0"></div>
+      <div class="form-group"><label>Cost Per Click ($)</label><input type="number" step="0.01" id="f-adsCPC" placeholder="0.00"></div>
+      <div class="form-group"><label>Cost Per Conversion ($)</label><input type="number" id="f-adsCPConv" placeholder="0"></div>
+
+      <div class="form-section-label">🔍 SEO Organic</div>
+      <div class="form-group"><label>Organic Clicks</label><input type="number" id="f-seoClicks" placeholder="0"></div>
+      <div class="form-group"><label>Form Enquiries</label><input type="number" id="f-seoForms" placeholder="0"></div>
+
+      <div class="form-section-label">📍 Google Business Profile</div>
+      <div class="form-group full"><label>Phone Calls</label><input type="number" id="f-gbpCalls" placeholder="0"></div>
+    </div>
+
+    <div class="modal-actions">
+      <span class="modal-error" id="modalError"></span>
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" id="saveBtn" onclick="saveMonth()">Save & Update Report</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const GITHUB_USER = 'joshcaddie';
+const GITHUB_REPO = 'napier-heatpumps-report';
+const GITHUB_FILE = 'data.json';
+const RAW_URL = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main/${GITHUB_FILE}`;
+const API_URL  = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${GITHUB_FILE}`;
+
+let d = null;
+let fileSha = null;
+let charts = {};
+
+// ─── LOAD ─────────────────────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    // Use API URL to also get the SHA needed for updates
+    const res = await fetch(RAW_URL + '?t=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    d = await res.json();
+    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('reportContent').style.display = 'block';
+    renderAll();
+  } catch(e) {
+    document.getElementById('loadingMsg').style.display = 'none';
+    showError('Could not load report data. (' + e.message + ')');
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorBanner');
+  el.textContent = '⚠️ ' + msg;
+  el.style.display = 'block';
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function fmt(v, prefix='') {
+  if (v === null || v === undefined || isNaN(v)) return '—';
+  return prefix + (Number.isInteger(v) ? v : Number(v).toFixed(2));
+}
+function pctChange(curr, prev) {
+  if (!prev) return '';
+  const p = ((curr - prev) / prev * 100).toFixed(0);
+  if (p > 0) return `<span class="kpi-change up">↑ ${p}% vs last month</span>`;
+  if (p < 0) return `<span class="kpi-change down">↓ ${Math.abs(p)}% vs last month</span>`;
+  return `<span class="kpi-change">Same as last month</span>`;
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function renderAll() {
+  document.getElementById('headerMonth').textContent = d.reportMonth;
+  document.title = 'Napier Heat Pumps – ' + d.reportMonth;
+
+  const tf0 = d.contactForm[0] + d.quickQuote[0] + d.maintenanceForm[0];
+  const tf1 = d.contactForm[1] + d.quickQuote[1] + d.maintenanceForm[1];
+  const cpcDown = d.adsCPConv[0] <= d.adsCPConv[1];
+  const cpcClickDown = d.adsCPC[0] <= d.adsCPC[1];
+
+  document.getElementById('kpiGrid').innerHTML = [
+    { label: 'Total Form Enquiries', val: tf0, change: pctChange(tf0, tf1), color: 'green' },
+    { label: 'Google Ads Conversions', val: d.adsConversions[0], change: pctChange(d.adsConversions[0], d.adsConversions[1]), color: '' },
+    { label: 'Cost Per Conversion', val: '$'+fmt(d.adsCPConv[0]), change: cpcDown ? '<span class="kpi-change up">↓ lower than last month ✓</span>' : '<span class="kpi-change down">↑ higher than last month</span>', color: cpcDown?'green':'red' },
+    { label: 'GBP Phone Calls', val: d.gbpCalls[0], change: pctChange(d.gbpCalls[0], d.gbpCalls[1]), color: 'purple' },
+    { label: 'SEO Organic Clicks', val: d.seoClicks[0], change: pctChange(d.seoClicks[0], d.seoClicks[1]), color: 'orange' },
+    { label: 'Ads Cost Per Click', val: '$'+fmt(d.adsCPC[0]), change: cpcClickDown ? '<span class="kpi-change up">↓ lower ✓</span>' : '<span class="kpi-change down">↑ higher</span>', color: cpcClickDown?'green':'' },
+  ].map(k => `<div class="kpi-card ${k.color}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.val}</div>${k.change}</div>`).join('');
+
+  document.getElementById('kpi-adsSpend').textContent = '$' + d.adsSpend.toLocaleString();
+  document.getElementById('kpi-seoInvest').textContent = '$' + d.seoInvest.toLocaleString();
+  document.getElementById('kpi-totalInvest').textContent = '$' + (d.adsSpend + 200 + d.seoInvest).toLocaleString();
+
+  // Table headers
+  for (let i=0;i<6;i++) {
+    ['th','fth'].forEach(p => { const e=document.getElementById(p+i); if(e) e.textContent=d.months[i]||''; });
+  }
+  for (let i=0;i<4;i++) { const e=document.getElementById('seth'+i); if(e) e.textContent=d.months[i]||''; }
+
+  // Ads table
+  document.getElementById('adsTableBody').innerHTML = [
+    ['Clicks',d.adsClicks],['Conversions',d.adsConversions],['Forms',d.adsForms],
+    ['Phone Clicks',d.adsPhoneClicks],['Cost Per Click',d.adsCPC,'$'],['Cost Per Conversion',d.adsCPConv,'$']
+  ].map(([l,a,p=''])=>`<tr><td>${l}</td>${a.slice(0,6).map((v,i)=>`<td class="${i===0?'current':''}">${fmt(v,p)}</td>`).join('')}</tr>`).join('');
+
+  // Forms table
+  const totals = d.contactForm.slice(0,6).map((_,i)=>d.contactForm[i]+d.quickQuote[i]+d.maintenanceForm[i]);
+  document.getElementById('formsTableBody').innerHTML =
+    [['Contact Form',d.contactForm],['Quick Quote',d.quickQuote],['Maintenance Form',d.maintenanceForm]]
+    .map(([l,a])=>`<tr><td>${l}</td>${a.slice(0,6).map((v,i)=>`<td class="${i===0?'current':''}">${fmt(v)}</td>`).join('')}</tr>`).join('') +
+    `<tr class="highlight-row"><td><strong>Total</strong></td>${totals.map((v,i)=>`<td class="${i===0?'current':''}"><strong>${v}</strong></td>`).join('')}</tr>`;
+
+  // SEO table
+  document.getElementById('seoTableBody').innerHTML = [['Organic Clicks',d.seoClicks],['Form Enquiries',d.seoForms]]
+    .map(([l,a])=>`<tr><td>${l}</td>${a.slice(0,4).map((v,i)=>`<td class="${i===0?'current':''}">${fmt(v)}</td>`).join('')}</tr>`).join('');
+
+  // GBP table
+  document.getElementById('gbpTableBody').innerHTML = d.gbpCalls.slice(0,8).map((v,i)=>
+    `<tr><td>${d.months[i]||''}</td><td class="${i===0?'current':''}">${fmt(v)}</td></tr>`).join('');
+
+  // Charts
+  Object.values(charts).forEach(c=>c.destroy()); charts={};
+  const labels=[...d.months].reverse();
+  const rev=a=>[...a].reverse();
+  const totalForms=d.contactForm.map((_,i)=>d.contactForm[i]+d.quickQuote[i]+d.maintenanceForm[i]);
+  const opts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#f0f4f8'},ticks:{font:{size:11}}}}};
+  charts.forms=new Chart(document.getElementById('chartForms'),{type:'bar',data:{labels,datasets:[{data:rev(totalForms),backgroundColor:'#2a69ac',borderRadius:5}]},options:opts});
+  charts.clicks=new Chart(document.getElementById('chartClicks'),{type:'line',data:{labels,datasets:[{data:rev(d.adsClicks),borderColor:'#38a169',backgroundColor:'rgba(56,161,105,0.1)',fill:true,tension:0.3,pointRadius:4}]},options:opts});
+  charts.cpc=new Chart(document.getElementById('chartCPC'),{type:'line',data:{labels,datasets:[{data:rev(d.adsCPConv),borderColor:'#dd6b20',backgroundColor:'rgba(221,107,32,0.1)',fill:true,tension:0.3,pointRadius:4}]},options:opts});
+  charts.calls=new Chart(document.getElementById('chartCalls'),{type:'bar',data:{labels,datasets:[{data:rev(d.gbpCalls),backgroundColor:'#805ad5',borderRadius:5}]},options:opts});
+}
+
+// ─── MODAL ────────────────────────────────────────────────────────────────────
+function openModal() {
+  document.getElementById('f-adsSpend').value = d.adsSpend;
+  document.getElementById('f-seoInvest').value = d.seoInvest;
+  ['f-month','f-pat','f-contactForm','f-quickQuote','f-maintenanceForm','f-adsClicks',
+   'f-adsConversions','f-adsForms','f-adsPhoneClicks','f-adsCPC','f-adsCPConv',
+   'f-seoClicks','f-seoForms','f-gbpCalls'].forEach(id => {
+    if(!['f-adsSpend','f-seoInvest'].includes(id)) document.getElementById(id).value='';
+  });
+  document.getElementById('modalError').textContent='';
+  document.getElementById('saveBtn').disabled=false;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+
+function monthLabel(val) {
+  if(!val) return '';
+  const [y,m]=val.split('-');
+  return ['January','February','March','April','May','June','July','August','September','October','November','December'][parseInt(m)-1]+' '+y;
+}
+function shortLabel(val) {
+  if(!val) return '';
+  const [y,m]=val.split('-');
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m)-1]+' '+y.slice(2);
+}
+function g(id) { const v=document.getElementById(id).value; return v===''?null:parseFloat(v); }
+
+async function saveMonth() {
+  const monthVal=document.getElementById('f-month').value;
+  const pat=document.getElementById('f-pat').value.trim();
+  if(!monthVal){document.getElementById('modalError').textContent='Please select a month.';return;}
+  if(!pat){document.getElementById('modalError').textContent='Please enter your GitHub token.';return;}
+
+  document.getElementById('saveBtn').disabled=true;
+  document.getElementById('modalError').textContent='Saving…';
+
+  const push=(arr,val)=>val!==null?[val,...arr].slice(0,12):arr;
+
+  const newData={
+    ...d,
+    reportMonth:monthLabel(monthVal),
+    adsSpend:g('f-adsSpend')??d.adsSpend,
+    seoInvest:g('f-seoInvest')??d.seoInvest,
+    months:[shortLabel(monthVal),...d.months].slice(0,12),
+    contactForm:push(d.contactForm,g('f-contactForm')),
+    quickQuote:push(d.quickQuote,g('f-quickQuote')),
+    maintenanceForm:push(d.maintenanceForm,g('f-maintenanceForm')),
+    adsClicks:push(d.adsClicks,g('f-adsClicks')),
+    adsConversions:push(d.adsConversions,g('f-adsConversions')),
+    adsForms:push(d.adsForms,g('f-adsForms')),
+    adsPhoneClicks:push(d.adsPhoneClicks,g('f-adsPhoneClicks')),
+    adsCPC:push(d.adsCPC,g('f-adsCPC')),
+    adsCPConv:push(d.adsCPConv,g('f-adsCPConv')),
+    seoClicks:push(d.seoClicks,g('f-seoClicks')),
+    seoForms:push(d.seoForms,g('f-seoForms')),
+    gbpCalls:push(d.gbpCalls,g('f-gbpCalls')),
+  };
+
+  try {
+    // Get current SHA
+    const shaRes=await fetch(API_URL,{headers:{Authorization:`token ${pat}`}});
+    const shaJson=await shaRes.json();
+    if(!shaRes.ok) throw new Error(shaJson.message||'Could not fetch file SHA');
+    const sha=shaJson.sha;
+
+    // Update file
+    const content=btoa(unescape(encodeURIComponent(JSON.stringify(newData,null,2))));
+    const updateRes=await fetch(API_URL,{
+      method:'PUT',
+      headers:{Authorization:`token ${pat}`,'Content-Type':'application/json'},
+      body:JSON.stringify({message:`Update report: ${monthLabel(monthVal)}`,content,sha})
+    });
+    const updateJson=await updateRes.json();
+    if(!updateRes.ok) throw new Error(updateJson.message||'Save failed');
+
+    d=newData;
+    closeModal();
+    renderAll();
+    showToast('✅ Report updated for '+monthLabel(monthVal));
+  } catch(e) {
+    document.getElementById('modalError').textContent='❌ '+e.message;
+    document.getElementById('saveBtn').disabled=false;
+  }
+}
+
+function showToast(msg,type='success') {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className='toast '+type;
+  setTimeout(()=>el.className='toast',3500);
+}
+
+document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+loadData();
+</script>
+</body>
+</html>
